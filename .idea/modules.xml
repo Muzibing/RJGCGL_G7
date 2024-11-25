@@ -2,9 +2,13 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+<<<<<<< HEAD
       <module fileurl="file://$PROJECT_DIR$/.idea/CPCS.iml" filepath="$PROJECT_DIR$/.idea/CPCS.iml" />
       <module fileurl="file://$PROJECT_DIR$/../djangoday16/.idea/djangoday16.iml" filepath="$PROJECT_DIR$/../djangoday16/.idea/djangoday16.iml" />
       <module fileurl="file://$PROJECT_DIR$/../handle_excel/.idea/handle_excel.iml" filepath="$PROJECT_DIR$/../handle_excel/.idea/handle_excel.iml" />
+=======
+      <module fileurl="file://$PROJECT_DIR$/.idea/djangoProject.iml" filepath="$PROJECT_DIR$/.idea/djangoProject.iml" />
+>>>>>>> 130d08e2b406837cdb4158d192f7bd40c689a511
     </modules>
   </component>
 </project>

@@ -86,9 +86,9 @@ WSGI_APPLICATION = 'CPCS.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'grab_goods',
+        'NAME': 'software_manage',
         'USER': 'root',
-        'PASSWORD': '040517cc',
+        'PASSWORD': 'ww71304002ww',
         'HOST': '127.0.0.1',
         'PORT': 3306,
     }

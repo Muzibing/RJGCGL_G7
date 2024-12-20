@@ -26,6 +26,38 @@
 
     <!-- 聊天窗口 -->
     <div class="chat-container">
+      <!-- 添加症状提示词切换按钮 -->
+      <div class="symptoms-toggle">
+        <button @click="toggleSymptomsPanel">
+          {{ showSymptoms ? "隐藏症状选择" : "展开症状选择" }}
+          <span :class="['toggle-icon', { rotated: showSymptoms }]">▼</span>
+        </button>
+      </div>
+
+      <!-- 症状提示词部分 -->
+      <div class="symptoms-tags" v-show="showSymptoms">
+        <div
+          class="symptoms-category"
+          v-for="(category, index) in symptomCategories"
+          :key="index"
+        >
+          <h4>{{ category.name }}</h4>
+          <div class="tag-container">
+            <span
+              v-for="(symptom, sIndex) in category.symptoms"
+              :key="sIndex"
+              :class="[
+                'symptom-tag',
+                { active: selectedSymptoms.includes(symptom) },
+              ]"
+              @click="toggleSymptom(symptom)"
+            >
+              {{ symptom }}
+            </span>
+          </div>
+        </div>
+      </div>
+
       <div class="messages-container">
         <div
           v-for="(message, index) in internalMessages"
@@ -36,13 +68,20 @@
           <div class="message-content">{{ message.text }}</div>
         </div>
       </div>
+
+      <!-- 输入框部分 -->
       <div class="input-container">
-        <input
-          v-model="userInput"
-          @keyup.enter="sendMessage"
-          placeholder="请输入您的问题..."
-        />
-        <button @click="sendMessage">发送</button>
+        <div class="selected-symptoms" v-if="selectedSymptoms.length > 0">
+          已选症状：{{ selectedSymptoms.join("、") }}
+        </div>
+        <div class="input-row">
+          <input
+            v-model="userInput"
+            @keyup.enter="sendMessage"
+            :placeholder="inputPlaceholder"
+          />
+          <button @click="sendMessage">发送</button>
+        </div>
       </div>
     </div>
   </div>
@@ -89,37 +128,77 @@ export default {
     return {
       internalMessages: [],
       userInput: "",
+      selectedSymptoms: [],
+      showSymptoms: false, // 添加控制症状面板显示的状态
+      symptomCategories: [
+        {
+          name: "常见症状",
+          symptoms: [
+            "发热",
+            "咳嗽",
+            "头痛",
+            "乏力",
+            "咽痛",
+            "腹痛",
+            "恶心",
+            "呕吐",
+          ],
+        },
+        {
+          name: "疼痛类型",
+          symptoms: ["刺痛", "钝痛", "持续性疼痛", "间歇性疼痛", "胀痛"],
+        },
+        {
+          name: "其他症状",
+          symptoms: ["食欲不振", "失眠", "头晕", "心悸", "胸闷", "气短"],
+        },
+      ],
     };
   },
-  watch: {
-    messages: {
-      immediate: true,
-      handler(newMessages) {
-        this.internalMessages = [...newMessages];
-      },
+  computed: {
+    inputPlaceholder() {
+      return this.selectedSymptoms.length > 0
+        ? "您可以继续描述症状的具体情况..."
+        : "请描述您的症状，或点击上方的症状标签...";
     },
   },
   methods: {
-    // 修改 sendMessage 方法
+    toggleSymptom(symptom) {
+      const index = this.selectedSymptoms.indexOf(symptom);
+      if (index === -1) {
+        this.selectedSymptoms.push(symptom);
+      } else {
+        this.selectedSymptoms.splice(index, 1);
+      }
+    },
     async sendMessage() {
-      if (this.userInput.trim()) {
+      if (this.userInput.trim() || this.selectedSymptoms.length > 0) {
+        // 构建消息文本
+        let messageText = "";
+        if (this.selectedSymptoms.length > 0) {
+          messageText += `我的症状包括：${this.selectedSymptoms.join("、")}。`;
+        }
+        if (this.userInput.trim()) {
+          messageText += this.userInput.trim();
+        }
+
         // 创建用户消息
         const userMessage = {
-          text: this.userInput,
+          text: messageText,
           sender: "user",
           avatar: "../patient.jpg",
         };
         this.internalMessages.push(userMessage);
         this.userInput = "";
+        this.selectedSymptoms = []; // 清空已选症状
 
         // 调用后端 API
         try {
           const response = await axios.post("/deepseek/chat/", {
             message: userMessage.text,
-            history: this.internalMessages.slice(0, -1), // 发送除了最新消息之外的所有历史记录
+            history: this.internalMessages.slice(0, -1),
           });
 
-          // 获取后端返回的消息，并生成 botMessage
           const botMessage = {
             text: response.data.reply,
             sender: "bot",
@@ -127,7 +206,7 @@ export default {
           };
 
           this.internalMessages.push(botMessage);
-          this.$emit("update-messages", this.internalMessages); // 更新父组件中的消息
+          this.$emit("update-messages", this.internalMessages);
         } catch (error) {
           console.error("Error sending message to backend:", error);
           const errorMessage = {
@@ -138,6 +217,18 @@ export default {
           this.internalMessages.push(errorMessage);
         }
       }
+    },
+    // 添加切换症状面板的方法
+    toggleSymptomsPanel() {
+      this.showSymptoms = !this.showSymptoms;
+    },
+  },
+  watch: {
+    messages: {
+      immediate: true,
+      handler(newMessages) {
+        this.internalMessages = [...newMessages];
+      },
     },
   },
 };
@@ -242,29 +333,157 @@ export default {
   font-size: 0.95em;
 }
 
+.symptoms-tags {
+  padding: 1em;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 1em;
+}
+
+.symptoms-category {
+  margin-bottom: 1em;
+}
+
+.symptoms-category h4 {
+  margin: 0.5em 0;
+  color: #666;
+  font-size: 0.9em;
+}
+
+.tag-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+}
+
+.symptom-tag {
+  display: inline-block;
+  padding: 0.3em 0.8em;
+  background-color: #e9ecef;
+  border-radius: 16px;
+  font-size: 0.9em;
+  color: #495057;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.symptom-tag:hover {
+  background-color: #dee2e6;
+}
+
+.symptom-tag.active {
+  background-color: #3f51b5;
+  color: white;
+}
+
+.selected-symptoms {
+  padding: 0.5em;
+  margin-bottom: 0.5em;
+  font-size: 0.9em;
+  color: #666;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+}
+
 .input-container {
   display: flex;
-  max-width: 100%;
-  margin: 1em 0 0 0;
+  flex-direction: column;
+  padding: 1em;
   background-color: white;
-  padding: 0.8em;
-  border-top: 1px solid #ddd;
+  border-top: 1px solid #eee;
 }
 
 .input-container input {
   flex: 1;
-  padding: 0.5em;
+  padding: 0.8em;
   border: 1px solid #ddd;
-  border-radius: 4px 0 0 4px;
-  background-color: transparent;
+  border-radius: 4px;
+  margin-bottom: 0.5em;
+  font-size: 0.95em;
 }
 
 .input-container button {
-  padding: 0.5em 1em;
-  border: none;
+  padding: 0.8em 1.5em;
   background-color: #3f51b5;
   color: white;
+  border: none;
+  border-radius: 4px;
   cursor: pointer;
-  border-radius: 0 4px 4px 0;
+  align-self: flex-end;
+}
+
+.input-container button:hover {
+  background-color: #303f9f;
+}
+
+.symptoms-toggle {
+  padding: 0.5em 1em;
+  border-bottom: 1px solid #eee;
+}
+
+.symptoms-toggle button {
+  background: none;
+  border: none;
+  color: #3f51b5;
+  cursor: pointer;
+  font-size: 0.9em;
+  padding: 0.5em 1em;
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
+.toggle-icon {
+  display: inline-block;
+  transition: transform 0.3s ease;
+}
+
+.toggle-icon.rotated {
+  transform: rotate(180deg);
+}
+
+.symptoms-tags {
+  padding: 1em;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #eee;
+  transition: all 0.3s ease;
+}
+
+.input-container {
+  padding: 1em;
+  background-color: white;
+  border-top: 1px solid #eee;
+}
+
+.input-row {
+  display: flex;
+  gap: 0.5em;
+}
+
+.input-row input {
+  flex: 1;
+  padding: 0.8em;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.95em;
+}
+
+.input-row button {
+  padding: 0.8em 1.5em;
+  background-color: #3f51b5;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.input-row button:hover {
+  background-color: #303f9f;
+}
+
+.messages-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1em;
 }
 </style>

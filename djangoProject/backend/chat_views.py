@@ -36,7 +36,7 @@ class DeepSeekChatView(APIView):
             response = client.chat.completions.create(
                 model="deepseek-chat",
                 messages=messages,
-                max_tokens=1024,
+                max_tokens=4096,
                 temperature=0.7,
                 stream=False,
             )

@@ -14,12 +14,28 @@ class DeepSeekChatView(APIView):
             # 从前端请求中获取用户发送的消息和历史记录
             user_message = request.data.get("message")
             chat_history = request.data.get("history", [])
+            patient_info = request.data.get("patientInfo")
             
             if not user_message:
                 return Response({"error": "Message content is required"}, status=status.HTTP_400_BAD_REQUEST)
 
             # 构建消息历史
-            messages = [{"role": "system", "content": "You are a helpful assistant"}]
+            messages = [{"role": "system", "content": "You are a helpful medical assistant. Please provide professional medical advice based on the patient's information and symptoms."}]
+            
+            # 如果有患者信息，添加到上下文
+            if patient_info:
+                patient_context = f"""患者基本信息：
+- 姓名：{patient_info.get('name')}
+- 年龄：{patient_info.get('age')}岁
+- 性别：{'男' if patient_info.get('gender') == 'male' else '女'}
+- 身高：{patient_info.get('height')}cm
+- 体重：{patient_info.get('weight')}kg
+- 既往病史：{patient_info.get('medicalHistory') or '无'}
+- 过敏史：{patient_info.get('allergies') or '无'}
+
+请基于以上信息为患者提供专业的医疗建议。
+"""
+                messages.append({"role": "system", "content": patient_context})
             
             # 添加历史消息
             for msg in chat_history:

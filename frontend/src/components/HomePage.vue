@@ -21,6 +21,48 @@
       </div>
     </header>
 
+    <!-- 患者信息展示 -->
+    <div class="patient-info-section" v-if="patientInfo">
+      <div class="patient-info-header" @click="togglePatientInfo">
+        <h3>患者信息</h3>
+        <button class="toggle-btn" :class="{ rotated: showPatientInfo }">
+          ▼
+        </button>
+      </div>
+      <div class="patient-info-display" v-show="showPatientInfo">
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="label">姓名：</span>
+            <span>{{ patientInfo.name }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">年龄：</span>
+            <span>{{ patientInfo.age }}岁</span>
+          </div>
+          <div class="info-item">
+            <span class="label">性别：</span>
+            <span>{{ patientInfo.gender === "male" ? "男" : "女" }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">身高：</span>
+            <span>{{ patientInfo.height }}cm</span>
+          </div>
+          <div class="info-item">
+            <span class="label">体重：</span>
+            <span>{{ patientInfo.weight }}kg</span>
+          </div>
+        </div>
+        <div class="info-item full-width" v-if="patientInfo.medicalHistory">
+          <span class="label">既往病史：</span>
+          <span>{{ patientInfo.medicalHistory }}</span>
+        </div>
+        <div class="info-item full-width" v-if="patientInfo.allergies">
+          <span class="label">过敏史：</span>
+          <span>{{ patientInfo.allergies }}</span>
+        </div>
+      </div>
+    </div>
+
     <!-- 健康信息输入窗 -->
     <HealthInfo v-if="isLoggedIn" />
 
@@ -65,7 +107,14 @@
           :class="['chat-message', message.sender]"
         >
           <img :src="message.avatar" class="avatar" />
-          <div class="message-content">{{ message.text }}</div>
+          <div class="message-content" v-if="message.sender === 'user'">
+            {{ message.text }}
+          </div>
+          <div
+            class="message-content markdown-body"
+            v-else
+            v-html="renderMarkdown(message.text)"
+          ></div>
         </div>
       </div>
 
@@ -92,9 +141,15 @@
 import axios from "../axios"; // 确保正确的路径，axios 实例位于 src/axios.js
 import { inject } from "vue";
 import HealthInfo from "./HealthInfo.vue"; // 引入健康信息组件
+import { marked } from "marked";
+import hljs from "highlight.js";
+import "highlight.js/styles/github.css"; // 使用 GitHub 风格的代码高亮主题
 
 export default {
-  props: ["messages"],
+  props: {
+    messages: Array,
+    patientInfo: Object,
+  },
   components: {
     HealthInfo,
   },
@@ -130,6 +185,7 @@ export default {
       userInput: "",
       selectedSymptoms: [],
       showSymptoms: false, // 添加控制症状面板显示的状态
+      showPatientInfo: true, // 添加患者信息显示状态
       symptomCategories: [
         {
           name: "常见症状",
@@ -190,13 +246,14 @@ export default {
         };
         this.internalMessages.push(userMessage);
         this.userInput = "";
-        this.selectedSymptoms = []; // 清空已选症状
+        this.selectedSymptoms = [];
 
         // 调用后端 API
         try {
           const response = await axios.post("/deepseek/chat/", {
-            message: userMessage.text,
+            message: messageText,
             history: this.internalMessages.slice(0, -1),
+            patientInfo: this.patientInfo, // 添加患者信息
           });
 
           const botMessage = {
@@ -222,6 +279,17 @@ export default {
     toggleSymptomsPanel() {
       this.showSymptoms = !this.showSymptoms;
     },
+    renderMarkdown(text) {
+      try {
+        return marked(text);
+      } catch (e) {
+        console.error("Markdown rendering error:", e);
+        return text;
+      }
+    },
+    togglePatientInfo() {
+      this.showPatientInfo = !this.showPatientInfo;
+    },
   },
   watch: {
     messages: {
@@ -230,6 +298,23 @@ export default {
         this.internalMessages = [...newMessages];
       },
     },
+  },
+  created() {
+    // 配置 marked
+    marked.setOptions({
+      highlight: function (code, lang) {
+        if (lang && hljs.getLanguage(lang)) {
+          try {
+            return hljs.highlight(code, { language: lang }).value;
+          } catch (e) {
+            console.error(e);
+          }
+        }
+        return hljs.highlightAuto(code).value;
+      },
+      breaks: true, // 支持 GitHub 风格的换行
+      gfm: true, // 启用 GitHub 风格的 Markdown
+    });
   },
 };
 </script>
@@ -485,5 +570,208 @@ export default {
   flex: 1;
   overflow-y: auto;
   padding: 1em;
+}
+
+/* Markdown 样式 */
+.markdown-body {
+  font-size: 14px;
+  line-height: 1.6;
+  word-wrap: break-word;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.markdown-body h1 {
+  font-size: 1.5em;
+}
+.markdown-body h2 {
+  font-size: 1.3em;
+}
+.markdown-body h3 {
+  font-size: 1.2em;
+}
+.markdown-body h4 {
+  font-size: 1.1em;
+}
+.markdown-body h5,
+.markdown-body h6 {
+  font-size: 1em;
+}
+
+.markdown-body p {
+  margin-top: 0;
+  margin-bottom: 0.8em;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  margin-top: 0;
+  margin-bottom: 0.8em;
+  padding-left: 2em;
+}
+
+.markdown-body li {
+  margin: 0.2em 0;
+}
+
+.markdown-body pre {
+  margin: 0.8em 0;
+  padding: 1em;
+  overflow: auto;
+  background-color: #f6f8fa;
+  border-radius: 6px;
+}
+
+.markdown-body code {
+  padding: 0.2em 0.4em;
+  margin: 0;
+  font-size: 85%;
+  background-color: rgba(175, 184, 193, 0.2);
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas,
+    Liberation Mono, monospace;
+}
+
+.markdown-body pre code {
+  padding: 0;
+  margin: 0;
+  font-size: 100%;
+  word-break: normal;
+  white-space: pre;
+  background: transparent;
+  border: 0;
+}
+
+.markdown-body blockquote {
+  margin: 0.8em 0;
+  padding: 0 1em;
+  color: #656d76;
+  border-left: 0.25em solid #d0d7de;
+}
+
+.markdown-body table {
+  border-spacing: 0;
+  border-collapse: collapse;
+  margin: 0.8em 0;
+  width: 100%;
+}
+
+.markdown-body table th,
+.markdown-body table td {
+  padding: 6px 13px;
+  border: 1px solid #d0d7de;
+}
+
+.markdown-body table tr {
+  background-color: #ffffff;
+  border-top: 1px solid #d0d7de;
+}
+
+.markdown-body table tr:nth-child(2n) {
+  background-color: #f6f8fa;
+}
+
+.markdown-body img {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.message-content {
+  max-width: 80%;
+  padding: 1em 1.5em;
+  border-radius: 15px;
+  font-size: 0.95em;
+  line-height: 1.4;
+}
+
+.chat-message.user .message-content {
+  background-color: #3f51b5;
+  color: white;
+}
+
+.chat-message.bot .message-content {
+  background-color: #dadada;
+  color: #2c3e50;
+}
+
+/* 添加患者信息显示样式 */
+.patient-info-section {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  margin: 1em 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.patient-info-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.8em 1em;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+  transition: background-color 0.2s ease;
+}
+
+.patient-info-header:hover {
+  background-color: #f0f0f0;
+}
+
+.patient-info-header h3 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 1.1em;
+}
+
+.toggle-btn {
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 1em;
+  cursor: pointer;
+  padding: 0.2em;
+  transition: transform 0.3s ease;
+}
+
+.toggle-btn.rotated {
+  transform: rotate(180deg);
+}
+
+.patient-info-display {
+  padding: 1em;
+  transition: all 0.3s ease;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1em;
+  margin-bottom: 1em;
+}
+
+.info-item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5em;
+}
+
+.info-item.full-width {
+  grid-column: 1 / -1;
+  margin-top: 0.5em;
+}
+
+.label {
+  color: #666;
+  font-weight: 500;
+  min-width: 70px;
 }
 </style>

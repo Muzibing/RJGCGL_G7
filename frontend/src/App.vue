@@ -5,7 +5,11 @@
       <aside class="sidebar">
         <div class="sidebar-header">
           <h2>历史对话记录</h2>
-          <button class="add-chat-btn" @click="startNewChat" title="新建对话">
+          <button
+            class="add-chat-btn"
+            @click="showPatientDialog"
+            title="新建对话"
+          >
             <span>+</span>
           </button>
         </div>
@@ -47,20 +51,34 @@
       <router-view
         :key="activeChatIndex"
         :messages="activeMessages"
+        :patientInfo="activePatientInfo"
         @update-messages="updateMessages"
       />
     </div>
+
+    <!-- 患者信息对话框 -->
+    <PatientInfoDialog
+      :show="showDialog"
+      @submit="createNewChat"
+      @cancel="cancelDialog"
+    />
   </div>
 </template>
 
 <script>
+import PatientInfoDialog from "./components/PatientInfoDialog.vue";
+
 export default {
+  components: {
+    PatientInfoDialog,
+  },
   data() {
     return {
-      chatHistory: [{ name: "", messages: [] }],
+      chatHistory: [{ name: "", messages: [], patientInfo: null }],
       activeChatIndex: 0,
       isLoggedIn: false,
       username: "",
+      showDialog: false,
     };
   },
   provide() {
@@ -74,14 +92,29 @@ export default {
     activeMessages() {
       return this.chatHistory[this.activeChatIndex].messages;
     },
+    activePatientInfo() {
+      return this.chatHistory[this.activeChatIndex].patientInfo;
+    },
   },
   methods: {
     setLogin(status, username = "") {
       this.isLoggedIn = status;
       this.username = username;
     },
-    startNewChat() {
-      this.chatHistory.push({ name: "", messages: [] });
+    showPatientDialog() {
+      this.showDialog = true;
+    },
+    cancelDialog() {
+      this.showDialog = false;
+    },
+    createNewChat(patientInfo) {
+      this.showDialog = false;
+      const chatName = `${patientInfo.name}的问诊`;
+      this.chatHistory.push({
+        name: chatName,
+        messages: [],
+        patientInfo: patientInfo,
+      });
       this.activeChatIndex = this.chatHistory.length - 1;
     },
     loadChatHistory(index) {
@@ -105,7 +138,7 @@ export default {
         // 如果删除的是当前活动的对话，或者删除后没有对话了
         if (this.chatHistory.length === 0) {
           // 如果没有对话了，创建一个新的
-          this.chatHistory.push({ name: "", messages: [] });
+          this.chatHistory.push({ name: "", messages: [], patientInfo: null });
           this.activeChatIndex = 0;
         } else if (index <= this.activeChatIndex) {
           // 如果删除的是当前对话或之前的对话，需要调整当前索引
